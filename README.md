@@ -1,5 +1,7 @@
 # dlive_mod
 
+d站直播点歌姬
+
 抖音直播弹幕点歌改造工作区。
 
 - `blive-vod/`：当前改造的命令行点歌机，运行和测试说明见 [README](blive-vod/README.md)。
