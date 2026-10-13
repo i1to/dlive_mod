@@ -1,0 +1,39 @@
+# 本地工具目录与子仓库历史备份
+.agents/
+.aws/
+.codex/
+.git-backups/
+**/.git/
+
+# 本地凭证与运行配置
+config.json
+cookies.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.A歌曲黑名单.txt
+
+# Python、Node 与编辑器缓存
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+node_modules/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 构建与运行产物
+*.log
+*.spec
+*.exe
+**/package-exe/build/
+**/package-exe/dist/
+**/package-exe/backend/
+**/package-exe/build-backend/
+**/package-exe/dist-desktop/
+**/desktop/dist/

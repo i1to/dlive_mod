@@ -1,0 +1,221 @@
+name: Notify Telegram on Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to announce"
+        required: true
+        type: string
+      release_name:
+        description: "Release name"
+        required: true
+        type: string
+      release_url:
+        description: "Release URL"
+        required: true
+        type: string
+      release_body:
+        description: "Release notes"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build Windows desktop executable
+        shell: pwsh
+        run: python package-exe/build_desktop.py
+
+      - name: Locate desktop executable
+        id: artifact
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem package-exe/dist-desktop -Filter "blive-vod-desktop-*.exe" | Select-Object -First 1
+          if (-not $exe) { throw "desktop executable not found" }
+          "path=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "name=$($exe.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload executable to GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$env:RELEASE_TAG" "${{ steps.artifact.outputs.path }}" --repo "$env:GITHUB_REPOSITORY" --clobber
+
+      - name: Store executable for Telegram
+        uses: actions/upload-artifact@v4
+        with:
+          name: blive-vod-${{ github.event.release.tag_name || inputs.release_tag }}
+          path: package-exe/dist-desktop/blive-vod-desktop-*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: build-and-upload
+    concurrency:
+      group: release-${{ github.event.release.tag_name || inputs.release_tag }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Download executable
+        uses: actions/download-artifact@v4
+        with:
+          name: blive-vod-${{ github.event.release.tag_name || inputs.release_tag }}
+          path: release-assets
+
+      - name: Send release executable to Telegram
+        shell: bash
+        env:
+          BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+          RELEASE_NAME: ${{ github.event.release.name || inputs.release_name }}
+          RELEASE_URL: ${{ github.event.release.html_url || inputs.release_url }}
+          RELEASE_PUBLISHED_AT: ${{ github.event.release.published_at || '' }}
+          RELEASE_BODY: ${{ github.event.release.body || inputs.release_body }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          import uuid
+          from pathlib import Path
+
+          # Telegram Bot API sendDocument 上限为 50 MB，留一点余量
+          MAX_UPLOAD_BYTES = 49 * 1024 * 1024
+
+          token = os.environ["BOT_TOKEN"]
+          chat_id = os.environ["CHAT_ID"]
+          tag = os.environ.get("RELEASE_TAG", "").strip()
+          name = os.environ.get("RELEASE_NAME", "").strip() or tag or "Unnamed release"
+          url = os.environ.get("RELEASE_URL", "").strip()
+          published_at = os.environ.get("RELEASE_PUBLISHED_AT", "").strip()
+          body = os.environ.get("RELEASE_BODY", "").strip()
+          candidates = sorted(Path("release-assets").glob("blive-vod-desktop-*.exe"))
+          if not candidates:
+              raise FileNotFoundError("Telegram attachment not found under release-assets/")
+          executable = candidates[0]
+          size = executable.stat().st_size
+          size_mb = size / 1024 / 1024
+
+          if len(body) > 650:
+              body = body[:650].rstrip() + "\n..."
+
+          lines = [
+              f"New release: {name}",
+              f"Tag: {tag}" if tag else "Tag: -",
+              f"URL: {url}" if url else "URL: -",
+          ]
+          if published_at:
+              lines.append(f"Published: {published_at}")
+          lines.append(f"Asset: {executable.name} ({size_mb:.1f} MB)")
+          if body:
+              lines.append("")
+              lines.append(body)
+          text = "\n".join(lines)
+
+
+          def call(method, fields, attachment=None):
+              """发送 multipart 请求，attachment 为 (字段名, Path) 或 None"""
+              boundary = f"----CodexBoundary{uuid.uuid4().hex}"
+              chunks = []
+              for key, value in fields.items():
+                  chunks.extend([
+                      f"--{boundary}\r\n".encode(),
+                      f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode(),
+                      str(value).encode("utf-8"),
+                      b"\r\n",
+                  ])
+              if attachment is not None:
+                  field, path = attachment
+                  chunks.extend([
+                      f"--{boundary}\r\n".encode(),
+                      f'Content-Disposition: form-data; name="{field}"; filename="{path.name}"\r\n'.encode(),
+                      b"Content-Type: application/vnd.microsoft.portable-executable\r\n\r\n",
+                      path.read_bytes(),
+                      b"\r\n",
+                  ])
+              chunks.append(f"--{boundary}--\r\n".encode())
+              req = urllib.request.Request(
+                  f"https://api.telegram.org/bot{token}/{method}",
+                  data=b"".join(chunks),
+                  headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+                  method="POST",
+              )
+              last_error = None
+              for attempt in range(3):
+                  try:
+                      with urllib.request.urlopen(req, timeout=300) as resp:
+                          resp.read()
+                      return None
+                  except urllib.error.HTTPError as e:
+                      detail = ""
+                      try:
+                          detail = e.read().decode("utf-8", "replace")
+                      except Exception:
+                          pass
+                      last_error = f"HTTP {e.code} {e.reason} {detail}".strip()
+                      # 客户端错误重试无意义（如附件过大），直接返回
+                      if 400 <= e.code < 500:
+                          return last_error
+                  except Exception as e:
+                      last_error = str(e)
+                  if attempt < 2:
+                      time.sleep(2 ** attempt)
+              return last_error
+
+
+          if size <= MAX_UPLOAD_BYTES:
+              error = call("sendDocument", {"chat_id": chat_id, "caption": text[:1024]}, ("document", executable))
+              if error is None:
+                  print(f"Telegram document sent: {executable.name} ({size_mb:.1f} MB)")
+                  raise SystemExit(0)
+              print(f"sendDocument failed, falling back to text message: {error}")
+          else:
+              print(f"Asset is {size_mb:.1f} MB, exceeds Telegram bot upload limit; sending link instead")
+
+          note = f"\n\nFile is {size_mb:.1f} MB and exceeds the Telegram bot upload limit, download it from the release page."
+          message = (text + note)[:4096]
+          error = call("sendMessage", {
+              "chat_id": chat_id,
+              "text": message,
+              "disable_web_page_preview": "false",
+          })
+          if error is not None:
+              raise RuntimeError(f"Telegram sendMessage failed: {error}")
+          print("Telegram message sent")
+          PY

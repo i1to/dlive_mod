@@ -1,0 +1,38 @@
+# Local data - contains login credentials and personal settings
+# config.json 仅以空模板入库，本地已标记 skip-worktree，不要提交真实凭证
+cookies.json
+.A歌曲黑名单.txt
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PyInstaller build artifacts
+*.spec
+
+# Node / Electron
+node_modules/
+desktop/node_modules/
+desktop/dist/
+package-lock.json
+package-exe/backend/
+package-exe/build-backend/
+package-exe/dist-desktop/

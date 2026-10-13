@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src http://127.0.0.1:* ws://127.0.0.1:*" />
+  <title>B站直播点歌机</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">B</div>
+        <div class="brand-text">
+          <div class="brand-title">Blive Vod</div>
+          <div class="brand-sub">点歌控制台</div>
+        </div>
+      </div>
+      <nav class="nav" aria-label="主导航">
+        <button type="button" class="nav-item active" data-page="overview" aria-current="page">
+          <span class="nav-dot" aria-hidden="true"></span>概览
+        </button>
+        <button type="button" class="nav-item" data-page="queue">
+          <span class="nav-dot" aria-hidden="true"></span>点歌队列
+        </button>
+        <button type="button" class="nav-item" data-page="logs">
+          <span class="nav-dot" aria-hidden="true"></span>弹幕日志
+        </button>
+        <button type="button" class="nav-item" data-page="settings">
+          <span class="nav-dot" aria-hidden="true"></span>设置
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="connBadge" class="badge offline">未连接</div>
+        <div class="account">
+          <div class="account-label">当前账号</div>
+          <div id="accountLabel" class="account-name" title="未登录">未登录</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-head">
+          <h1 id="pageTitle">概览</h1>
+          <p id="pageDesc" class="muted">实时状态与快捷操作</p>
+        </div>
+        <div class="top-actions">
+          <button type="button" id="btnLogin" class="btn ghost">检查登录</button>
+          <button type="button" id="btnStart" class="btn primary">开始监听</button>
+          <button type="button" id="btnStop" class="btn" disabled>停止</button>
+          <button type="button" id="btnSkip" class="btn danger" disabled>切歌</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section id="page-overview" class="page active" aria-labelledby="pageTitle">
+          <div class="page-scroll">
+            <div class="cards">
+              <div class="card">
+                <div class="label">直播间</div>
+                <div id="statRoom" class="value">-</div>
+              </div>
+              <div class="card">
+                <div class="label">监听状态</div>
+                <div id="statListen" class="value">未监听</div>
+              </div>
+              <div class="card">
+                <div class="label">弹幕总数</div>
+                <div id="statDanmaku" class="value">0</div>
+              </div>
+              <div class="card">
+                <div class="label">点歌成功</div>
+                <div id="statSongOk" class="value">0</div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">手动点歌</div>
+                <div class="panel-hint">提交后排队播放，不打断当前歌曲</div>
+              </div>
+              <form id="songForm" class="form-row" novalidate>
+                <label class="field">
+                  <span class="field-label">歌名</span>
+                  <input id="songName" class="input" placeholder="例如：青花瓷" autocomplete="off" required />
+                </label>
+                <label class="field">
+                  <span class="field-label">歌手（可选）</span>
+                  <input id="songSinger" class="input" placeholder="例如：周杰伦" autocomplete="off" />
+                </label>
+                <button type="submit" id="btnRequest" class="btn primary field-action">提交点歌</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">最近事件</div>
+                <div class="panel-hint">最多保留 20 条</div>
+              </div>
+              <div id="recentEvents" class="list scroll-area" aria-live="polite"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="page-queue" class="page">
+          <div class="panel fill">
+            <div class="panel-head">
+              <div class="panel-title">点歌队列</div>
+              <div class="panel-hint">最近 50 条</div>
+            </div>
+            <div id="queueList" class="list panel-body"></div>
+          </div>
+        </section>
+
+        <section id="page-logs" class="page">
+          <div class="panel fill">
+            <div class="panel-head">
+              <div class="panel-title">实时日志</div>
+              <div class="panel-tools">
+                <label class="check">
+                  <input type="checkbox" id="logAutoScroll" checked />
+                  <span>自动滚动</span>
+                </label>
+                <button type="button" id="btnClearLogs" class="btn small">清空</button>
+              </div>
+            </div>
+            <div id="logList" class="log-list panel-body" role="log" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section id="page-settings" class="page">
+          <div class="page-scroll">
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">房间设置</div>
+                <div class="panel-hint">保存后下次启动自动使用</div>
+              </div>
+              <form id="roomForm" class="form-row" novalidate>
+                <label class="field">
+                  <span class="field-label">直播间号</span>
+                  <input id="roomInput" class="input" placeholder="纯数字" inputmode="numeric" autocomplete="off" />
+                </label>
+                <button type="submit" id="btnSaveRoom" class="btn primary field-action">保存房间号</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">歌曲黑名单</div>
+                <div class="panel-hint">一行一个，保存后立即生效</div>
+              </div>
+              <textarea id="blacklistInput" class="textarea" rows="10" placeholder="例如：&#10;好日子&#10;恭喜发财"></textarea>
+              <div class="form-row row-gap">
+                <button type="button" id="btnSaveBlacklist" class="btn primary">保存黑名单</button>
+                <span id="blacklistCount" class="muted small">共 0 项</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="qrModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="qrTitle" aria-describedby="qrStatus">
+    <div class="modal-card">
+      <div id="qrTitle" class="modal-title">B站扫码登录</div>
+      <div class="modal-sub">请使用哔哩哔哩手机APP扫描二维码</div>
+      <div class="qr-box">
+        <canvas id="qrCanvas" width="240" height="240"></canvas>
+      </div>
+      <div id="qrStatus" class="qr-status" aria-live="polite">等待扫码中...</div>
+      <div class="modal-actions">
+        <button type="button" id="btnQrCancel" class="btn">取消登录</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
