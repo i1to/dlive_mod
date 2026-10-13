@@ -6,10 +6,11 @@
 
 ## 使用
 
-安装 Python 3.9+，并先启动落雪音乐桌面版。在 `blive-vod` 目录执行：
+安装 Python 3.9+，并先启动落雪音乐桌面版。在 `~/dlive-mod` 根目录执行：
 
 ```bash
-python -m pip install -r requirements.txt
+cd ~/dlive-mod
+python -m pip install -r blive-vod/requirements.txt
 
 # 将“直播间号”替换为抖音网页版直播地址后的数字
 python main.py https://live.douyin.com/直播间号 --listen-only
@@ -17,6 +18,8 @@ python main.py https://live.douyin.com/直播间号 --listen-only
 # 确认能收到弹幕后，启动点歌模式
 python main.py https://live.douyin.com/直播间号
 ```
+
+根目录 `main.py` 转交给 `blive-vod/main.py` 运行，配置文件和歌曲黑名单仍保存在 `blive-vod/` 中。
 
 弹幕指令：`点歌 青花瓷`、`点歌 青花瓷 周杰伦`；`下一首` 仅允许配置的用户ID白名单使用。
 
