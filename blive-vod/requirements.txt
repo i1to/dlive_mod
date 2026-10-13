@@ -15,8 +15,11 @@ urllib3==2.2.1
 wcwidth==0.2.13
 yarl==1.9.4
 
-# 抖音弹幕接入（与内置上游版本一致）
+# Douyin integration (matches the vendored upstream version)
 betterproto==2.0.0b6
 websocket-client==1.7.0
 PyExecJS==1.5.1
 mini_racer==0.12.4
+
+# Windows native certificate verification (Python 3.10+)
+truststore>=0.10,<0.11; sys_platform == "win32" and python_version >= "3.10"

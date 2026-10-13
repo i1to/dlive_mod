@@ -3,6 +3,7 @@ import asyncio
 from collections import deque
 from dataclasses import dataclass
 import threading
+import sys
 from urllib.parse import urlparse
 
 
@@ -27,6 +28,10 @@ def normalize_live_id(value):
 
 
 async def listen(live_id, on_chat, reconnect_delay=5):
+    # 在网络库导入前启用 Windows 系统证书验证，同时覆盖 requests 和 WebSocket。
+    if sys.platform == 'win32' and sys.version_info >= (3, 10):
+        import truststore
+        truststore.inject_into_ssl()
     # 延迟导入，使 --help 和离线规则测试不依赖网络库。
     from douyin_vendor.liveMan import DouyinLiveWebFetcher
     from douyin_vendor.protobuf.douyin import ChatMessage, ControlMessage, PushFrame

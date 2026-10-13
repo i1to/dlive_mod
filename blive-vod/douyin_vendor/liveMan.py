@@ -14,6 +14,8 @@ import hashlib
 import random
 import re
 import string
+import ssl
+import certifi
 import subprocess
 import threading
 import time
@@ -272,7 +274,10 @@ class DouyinLiveWebFetcher:
                                          on_error=self._wsOnError,
                                          on_close=self._wsOnClose)
         try:
-            self.ws.run_forever()
+            # 保留证书和主机名校验，同时使用 Windows 系统及 certifi 信任库。
+            tls_context = ssl.create_default_context()
+            tls_context.load_verify_locations(cafile=certifi.where())
+            self.ws.run_forever(sslopt={"context": tls_context})
         except Exception:
             self.stop()
             raise
@@ -318,28 +323,20 @@ class DouyinLiveWebFetcher:
                             ).SerializeToString()
             ws.send(ack, websocket.ABNF.OPCODE_BINARY)
         
-        # 根据消息类别解析消息体
+        # 点歌只需要聊天及直播结束通知，忽略排行榜、进场、礼物等消息。
+        handlers = {
+            'WebcastChatMessage': self._parseChatMsg,
+            'WebcastControlMessage': self._parseControlMsg,
+        }
         for msg in response.messages_list:
-            method = msg.method
+            handler = handlers.get(msg.method)
+            if handler is None:
+                continue
             try:
-                {
-                    'WebcastChatMessage': self._parseChatMsg,  # 聊天消息
-                    'WebcastGiftMessage': self._parseGiftMsg,  # 礼物消息
-                    'WebcastLikeMessage': self._parseLikeMsg,  # 点赞消息
-                    'WebcastMemberMessage': self._parseMemberMsg,  # 进入直播间消息
-                    'WebcastSocialMessage': self._parseSocialMsg,  # 关注消息
-                    'WebcastRoomUserSeqMessage': self._parseRoomUserSeqMsg,  # 直播间统计
-                    'WebcastFansclubMessage': self._parseFansclubMsg,  # 粉丝团消息
-                    'WebcastControlMessage': self._parseControlMsg,  # 直播间状态消息
-                    'WebcastEmojiChatMessage': self._parseEmojiChatMsg,  # 聊天表情包消息
-                    'WebcastRoomStatsMessage': self._parseRoomStatsMsg,  # 直播间统计信息
-                    'WebcastRoomMessage': self._parseRoomMsg,  # 直播间信息
-                    'WebcastRoomRankMessage': self._parseRankMsg,  # 直播间排行榜信息
-                    'WebcastRoomStreamAdaptationMessage': self._parseRoomStreamAdaptationMsg,  # 直播间流配置
-                }.get(method)(msg.payload)
-            except Exception:
-                pass
-    
+                handler(msg.payload)
+            except Exception as exc:
+                print(f"[抖音] 消息处理失败 ({msg.method}): {exc}")
+
     def _wsOnError(self, ws, error):
         print("WebSocket error: ", error)
     

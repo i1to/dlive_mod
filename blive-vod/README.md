@@ -6,7 +6,9 @@
 
 ## 安装与验证
 
-推荐 Windows 10/11 x64、Python 3.9+、落雪音乐桌面版 2.8.0+。
+推荐 Windows 10/11 x64、Python 3.11、落雪音乐桌面版 2.8.0+。
+Windows + Python 3.10 及以上使用 truststore 系统证书验证，覆盖 HTTPS 和 WebSocket；
+系统未信任的证书仍会被拒绝。
 在 `blive-vod` 目录打开终端：
 
 ```bash

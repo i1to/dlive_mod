@@ -105,6 +105,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
             'douyin_vendor.liveMan': SimpleNamespace(DouyinLiveWebFetcher=FakeFetcher),
             'douyin_vendor.protobuf.douyin': SimpleNamespace(ChatMessage=Parser, ControlMessage=Parser, PushFrame=Parser),
             'websocket': SimpleNamespace(),
+            'truststore': SimpleNamespace(inject_into_ssl=lambda: None),
         }
         loop = asyncio.get_running_loop()
         def executor(executor_arg, start):
