@@ -36,11 +36,11 @@ def play_from_search_result(song_info: dict) -> str:
     return Scheme_url
 
 
-def play_song(song_info: dict):
+def play_song(song_info: dict) -> bool:
     """
     处理搜索结果并调用 LX Music 播放（稍后播放模式）
 
     :param song_info: kg_search/wy_search/tx_search 返回的歌曲信息 dict
     """
     Scheme_url = play_from_search_result(song_info)
-    webbrowser.open(url=Scheme_url)
+    return bool(webbrowser.open(url=Scheme_url))

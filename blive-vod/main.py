@@ -41,6 +41,7 @@ class SongController:
             return
         try:
             self.queue.put_nowait(song)
+            print(f'[点歌] 已接收: {song[0]} - {song[1] or "未指定歌手"}；等待处理 {self.queue.qsize()} 条')
         except asyncio.QueueFull:
             print('[点歌] 待处理请求已满，请稍后再试')
 

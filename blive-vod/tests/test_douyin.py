@@ -77,6 +77,49 @@ class ControllerTests(unittest.IsolatedAsyncioTestCase):
             module.search_and_get_first.assert_awaited_once()
 
 
+class PlayerIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_real_handler_preserves_song_and_reports_submission(self):
+        import json
+        from urllib.parse import urlparse, parse_qs
+        import song_handler
+        info = {'source': 'wy', 'name': '青花瓷', 'singer': '周杰伦',
+                'albumName': '我很忙', 'interval': '03:59'}
+        kg = SimpleNamespace(search_and_get_first=AsyncMock(return_value=None))
+        wy = SimpleNamespace(search_and_get_first=AsyncMock(return_value=info))
+        tx = SimpleNamespace(search_and_get_first=AsyncMock())
+        with patch.dict(sys.modules, {'kg_search': kg, 'wy_search': wy, 'tx_search': tx}), \
+                patch('song_handler.webbrowser.open', return_value=True) as opened, \
+                patch('builtins.print') as printed:
+            controller = SongController()
+            controller.on_chat(ChatEvent('1', '观众', '点歌 青花瓷 周杰伦'))
+            worker = asyncio.create_task(controller.worker())
+            await asyncio.wait_for(controller.queue.join(), 1)
+            worker.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await worker
+            opened.assert_called_once()
+            url = urlparse(opened.call_args.kwargs['url'])
+            self.assertEqual((url.scheme, url.netloc, url.path), ('lxmusic', 'music', '/searchPlay'))
+            data = json.loads(parse_qs(url.query)['data'][0])
+            self.assertEqual(data, dict(info, playLater=True))
+            self.assertTrue(any('已提交到落雪音乐' in str(call) for call in printed.call_args_list))
+        tx.search_and_get_first.assert_not_awaited()
+        with patch('song_handler.webbrowser.open', return_value=False):
+            self.assertFalse(song_handler.play_song(info))
+
+    async def test_all_sources_empty_uses_deferred_player_search(self):
+        import json
+        from urllib.parse import urlparse, parse_qs
+        sources = {name: SimpleNamespace(search_and_get_first=AsyncMock(return_value=None))
+                   for name in ['kg_search', 'wy_search', 'tx_search']}
+        with patch.dict(sys.modules, sources), patch('main.webbrowser.open', return_value=True) as opened:
+            await SongController().play_song('青花瓷', '周杰伦')
+        data = json.loads(parse_qs(urlparse(opened.call_args.args[0]).query)['data'][0])
+        self.assertEqual(data['name'], '青花瓷')
+        self.assertEqual(data['singer'], '周杰伦')
+        self.assertTrue(data['playLater'])
+
+
 class ClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_callback_deduplication_and_reconnect(self):
         from douyin_client import listen

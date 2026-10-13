@@ -9,11 +9,12 @@
 推荐 Windows 10/11 x64、Python 3.11、落雪音乐桌面版 2.8.0+。
 Windows + Python 3.10 及以上使用 truststore 系统证书验证，覆盖 HTTPS 和 WebSocket；
 系统未信任的证书仍会被拒绝。
-在 `blive-vod` 目录打开终端：
+LX Music 下载、音源配置和 Windows 常见问题见 [根目录 README](../README.md#安装与配置-lx-music)。
+以下命令在项目根目录打开 PowerShell 执行：
 
-```bash
-python -m pip install -r requirements.txt
-python main.py https://live.douyin.com/你的直播间号 --listen-only
+```powershell
+py -3.11 -X utf8 -m pip install --use-feature=truststore -r .\blive-vod\requirements.txt
+py -3.11 -X utf8 .\main.py https://live.douyin.com/你的直播间号 --listen-only
 ```
 
 直播间号是浏览器地址 `live.douyin.com/` 后面的数字，不是抖音号，
@@ -26,8 +27,8 @@ python main.py https://live.douyin.com/你的直播间号 --listen-only
 
 确认能收到弹幕后，先启动落雪音乐，再运行：
 
-```bash
-python main.py https://live.douyin.com/你的直播间号
+```powershell
+py -3.11 -X utf8 .\main.py https://live.douyin.com/你的直播间号
 ```
 
 也可双击 `启动点歌机.bat`。第一次输入房间号，之后使用保存的
@@ -41,7 +42,7 @@ python main.py https://live.douyin.com/你的直播间号
 - `下一首`：只允许 `skip_user_ids` 白名单内的用户。
 - `.A歌曲黑名单.txt`：一行一个完整歌名，修改后重启。
 
-`config.json` 配置示例：
+配置与黑名单均保存在 `blive-vod/` 中。`config.json` 配置示例：
 
 ```json
 {
@@ -71,16 +72,16 @@ ID 建议填写字符串。切歌授权使用日志中的数字 UID，不使用�
 离线测试（无需第三方依赖）：
 
 ```bash
-python -m unittest discover -s tests -v
+py -3.11 -X utf8 -m unittest discover -s blive-vod/tests -v
 ```
 
-开发环境已通过离线规则测试；真实抖音接口、Windows播放器及EXE需本机联调。
+用户已验证真实抖音弹幕接收；9项离线测试通过，覆盖实际 Scheme URL 的歌曲参数、稍后播放标志、提交结果及搜索回退。Windows 播放器的真实播放、连续排队及EXE需本机联调。
 
 ## 打包与源码
 
 ```bash
-cd package-exe
-python build.py
+cd blive-vod/package-exe
+py -3.11 build.py
 ```
 
 输出 `package-exe/dist/blive-vod.exe`，需在Windows上验证。
